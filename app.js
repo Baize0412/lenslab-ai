@@ -1,6 +1,6 @@
 const $ = s => document.querySelector(s);
 const els = {
-  tabs: [...document.querySelectorAll('.mode-tab')], modeLabel: $('.mode-label'), engineStatus: $('#engineStatus'), fileInput: $('#fileInput'), uploadButton: $('#uploadButton'), dropzone: $('#dropzone'), previewPanel: $('#previewPanel'), previewImage: $('#previewImage'), overlayCanvas: $('#overlayCanvas'), cameraPanel: $('#cameraPanel'), cameraVideo: $('#cameraVideo'), cameraCanvas: $('#cameraCanvas'), cameraButton: $('#cameraButton'), stopCameraButton: $('#stopCameraButton'), clearButton: $('#clearButton'), analyzeButton: $('#analyzeButton'), progressWrap: $('#progressWrap'), progressBar: $('#progressBar'), progressLabel: $('#progressLabel'), resultTitle: $('#resultTitle'), resultCount: $('#resultCount'), resultsList: $('#resultsList'), tipMode: $('#tipMode'), toast: $('#toast'), toolCard: $('.tool-card'), filters: $('#objectFilters')
+  tabs: [...document.querySelectorAll('.mode-tab')], modeLabel: $('.mode-label'), engineStatus: $('#engineStatus'), fileInput: $('#fileInput'), uploadButton: $('#uploadButton'), dockUploadButton: $('#dockUploadButton'), dropzone: $('#dropzone'), previewPanel: $('#previewPanel'), previewImage: $('#previewImage'), overlayCanvas: $('#overlayCanvas'), cameraPanel: $('#cameraPanel'), cameraVideo: $('#cameraVideo'), cameraCanvas: $('#cameraCanvas'), cameraButton: $('#cameraButton'), stopCameraButton: $('#stopCameraButton'), clearButton: $('#clearButton'), analyzeButton: $('#analyzeButton'), progressWrap: $('#progressWrap'), progressBar: $('#progressBar'), progressLabel: $('#progressLabel'), resultTitle: $('#resultTitle'), resultCount: $('#resultCount'), resultsList: $('#resultsList'), tipMode: $('#tipMode'), tipHeading: $('#tipHeading'), tipDescription: $('#tipDescription'), toast: $('#toast'), toolCard: $('.tool-card'), filters: $('#objectFilters')
 };
 const state = { mode: 'objects', filter: 'all', imageReady: false, stream: null, models: {}, pending: {}, runningModes: {}, detecting: false, session: 0, imageUrl: null, lastFrame: -1 };
 const modeInfo = { objects: ['物品识别 / OBJECT DETECTION', '物品识别'], gestures: ['手势识别 / GESTURE RECOGNITION', '手势识别'], emotions: ['表情识别 / FACIAL EXPRESSION', '表情识别'] };
@@ -34,15 +34,28 @@ function render(items, title, note = '') {
   if (note) { const p = document.createElement('p'); p.className = 'recognition-note'; p.textContent = note; els.resultsList.append(p); }
 }
 function emptyResults() { els.resultTitle.textContent = '等待图片或摄像头'; els.resultCount.textContent = '—'; els.resultsList.innerHTML = '<div class="empty-result"><span class="empty-orbit">+</span><p>上传图片或打开摄像头，<br>查看 AI 识别结果</p></div>'; }
+function updateTip() {
+  const content = state.mode === 'gestures'
+    ? ['让手掌完整入镜', '保持手部清晰，手指不要被遮挡。比耶时让两根手指分开。']
+    : state.mode === 'emotions'
+      ? ['正面看向镜头', '让脸部处于均匀光线下，避免口罩和大面积遮挡。']
+      : state.filter === 'fruits'
+        ? ['拍清水果轮廓', '当前支持苹果、香蕉和橙子，单个水果更容易识别。']
+        : state.filter === 'waste'
+          ? ['分类还要看材质', '识别物品后会给出投放提示，请结合污染情况与当地规则确认。']
+          : ['让结果更准确', '使用光线充足、主体清晰的图片，尽量让目标完整出现在画面中。'];
+  els.tipHeading.textContent = content[0]; els.tipDescription.textContent = content[1];
+}
 function stopCamera() {
   state.session++; state.stream?.getTracks().forEach(track => track.stop()); state.stream = null; els.cameraVideo.srcObject = null;
+  document.body.classList.remove('camera-active');
   els.cameraPanel.classList.add('hidden'); els.dropzone.classList.remove('hidden'); els.cameraButton.classList.remove('hidden'); els.analyzeButton.classList.remove('hidden'); els.analyzeButton.disabled = true; els.progressWrap.classList.add('hidden'); engine('引擎待启动');
 }
 function resetInput() {
-  stopCamera(); state.imageReady = false; if (state.imageUrl) URL.revokeObjectURL(state.imageUrl); state.imageUrl = null; els.fileInput.value = ''; els.previewPanel.classList.add('hidden'); clearCanvas(els.overlayCanvas); emptyResults();
+  stopCamera(); state.imageReady = false; document.body.classList.remove('has-image'); if (state.imageUrl) URL.revokeObjectURL(state.imageUrl); state.imageUrl = null; els.fileInput.value = ''; els.previewPanel.classList.add('hidden'); clearCanvas(els.overlayCanvas); emptyResults();
 }
 function setMode(mode) {
-  if (state.detecting) return; resetInput(); state.mode = mode; const info = modeInfo[mode]; els.modeLabel.textContent = info[0]; els.tipMode.textContent = info[1]; els.filters.classList.toggle('hidden', mode !== 'objects');
+  if (state.detecting) return; resetInput(); state.mode = mode; const info = modeInfo[mode]; els.modeLabel.textContent = info[0]; els.tipMode.textContent = info[1]; els.filters.classList.toggle('hidden', mode !== 'objects'); updateTip();
   els.tabs.forEach(tab => { const active = tab.dataset.mode === mode; tab.classList.toggle('active', active); tab.setAttribute('aria-selected', active); });
 }
 function selectImage(file) {
@@ -50,7 +63,7 @@ function selectImage(file) {
   if (!file?.type.startsWith('image/')) return toast('请选择 JPG、PNG 或 WEBP 图片');
   if (file.size > 10 * 1024 * 1024) return toast('图片大小请控制在 10MB 以内');
   resetInput(); state.imageUrl = URL.createObjectURL(file);
-  els.previewImage.onload = () => { els.dropzone.classList.add('hidden'); els.previewPanel.classList.remove('hidden'); state.imageReady = true; els.analyzeButton.disabled = false; engine('图片已载入'); };
+  els.previewImage.onload = () => { els.dropzone.classList.add('hidden'); els.previewPanel.classList.remove('hidden'); state.imageReady = true; document.body.classList.add('has-image'); els.analyzeButton.disabled = false; engine('图片已载入'); };
   els.previewImage.onerror = () => { resetInput(); toast('无法读取这张图片，请换成 JPG 或 PNG'); }; els.previewImage.src = state.imageUrl;
 }
 function fitCanvas(canvas, source) {
@@ -111,7 +124,7 @@ async function infer(source, canvas, mode, video, session) {
 function busy(value) { state.detecting=value; els.tabs.forEach(t=>t.disabled=value); els.cameraButton.disabled=value; els.clearButton.disabled=value; els.analyzeButton.disabled=value || !state.imageReady; }
 async function analyzeImage() {
   if (!state.imageReady || state.detecting) return; busy(true); els.toolCard.classList.add('analyzing'); const session=state.session;
-  try { await infer(els.previewImage,els.overlayCanvas,state.mode,false,session); } catch(error) { console.error(error); toast('识别失败，请刷新后重试'); engine('需要重试'); }
+  try { await infer(els.previewImage,els.overlayCanvas,state.mode,false,session); if (matchMedia('(max-width: 760px)').matches) $('.results-card').scrollIntoView({behavior:'smooth',block:'start'}); } catch(error) { console.error(error); toast('识别失败，请刷新后重试'); engine('需要重试'); }
   finally { busy(false); els.toolCard.classList.remove('analyzing'); els.progressWrap.classList.add('hidden'); }
 }
 async function startCamera() {
@@ -120,7 +133,7 @@ async function startCamera() {
     if (!navigator.mediaDevices?.getUserMedia) throw new Error('Camera requires HTTPS');
     const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:960},height:{ideal:720}},audio:false});
     if (session!==state.session) {stream.getTracks().forEach(t=>t.stop());return;}
-    state.stream=stream; els.cameraVideo.srcObject=stream; els.dropzone.classList.add('hidden'); els.cameraPanel.classList.remove('hidden'); els.cameraButton.classList.add('hidden'); els.analyzeButton.classList.add('hidden'); await els.cameraVideo.play(); state.lastFrame=-1;
+    state.stream=stream; document.body.classList.add('camera-active'); els.cameraVideo.srcObject=stream; els.dropzone.classList.add('hidden'); els.cameraPanel.classList.remove('hidden'); els.cameraButton.classList.add('hidden'); els.analyzeButton.classList.add('hidden'); await els.cameraVideo.play(); state.lastFrame=-1;
     await loadModel(state.mode); if (session!==state.session) return; cameraLoop(session);
   } catch(error) { console.error(error); stopCamera(); toast('无法启动摄像头或模型，请检查权限后重试'); } finally {els.cameraButton.disabled=false;}
 }
@@ -131,8 +144,8 @@ async function cameraLoop(session) {
   if(session===state.session) setTimeout(()=>cameraLoop(session),state.mode==='objects'?300:100);
 }
 els.tabs.forEach(tab=>tab.addEventListener('click',()=>setMode(tab.dataset.mode)));
-els.filters.querySelectorAll('button').forEach(button=>button.addEventListener('click',()=>{state.filter=button.dataset.filter;els.filters.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));clearCanvas(els.overlayCanvas);emptyResults();}));
-els.uploadButton.addEventListener('click',()=>els.fileInput.click()); els.dropzone.addEventListener('click',e=>{if(!e.target.closest('button'))els.fileInput.click();});
+els.filters.querySelectorAll('button').forEach(button=>button.addEventListener('click',()=>{state.filter=button.dataset.filter;els.filters.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));clearCanvas(els.overlayCanvas);emptyResults();updateTip();}));
+els.uploadButton.addEventListener('click',()=>els.fileInput.click()); els.dockUploadButton.addEventListener('click',()=>els.fileInput.click()); els.dropzone.addEventListener('click',e=>{if(!e.target.closest('button'))els.fileInput.click();});
 els.fileInput.addEventListener('change',e=>selectImage(e.target.files[0]));
 ['dragenter','dragover'].forEach(type=>els.dropzone.addEventListener(type,e=>{e.preventDefault();els.dropzone.style.background='#f0f6d4';}));
 ['dragleave','drop'].forEach(type=>els.dropzone.addEventListener(type,e=>{e.preventDefault();els.dropzone.style.background='';}));

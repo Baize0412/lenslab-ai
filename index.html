@@ -12,6 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Noto+Serif+SC:wght@600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="fixes.css" />
+    <link rel="stylesheet" href="mobile.css" />
   </head>
   <body>
     <div class="grain" aria-hidden="true"></div>
@@ -47,6 +48,11 @@
       </section>
 
       <section class="workspace section-shell" id="recognizer">
+        <div class="mobile-intro">
+          <span class="mobile-kicker"><span class="mobile-kicker-dot"></span> AI 视觉助手</span>
+          <h1>今天，想识别什么？</h1>
+          <p>选一种模式，对准画面就能开始。</p>
+        </div>
         <div class="section-heading">
           <div><p class="eyebrow"><span class="eyebrow-line"></span>开始识别</p><h2>选择你的观察方式</h2></div>
           <p class="heading-note">所有推理在你的设备上完成<br /><span>无需上传图片 · 保护隐私</span></p>
@@ -65,8 +71,8 @@
             <div class="dropzone" id="dropzone">
               <input id="fileInput" type="file" accept="image/*" hidden />
               <div class="drop-icon"><span>↑</span></div>
-              <h3>拖入图片，或点击上传</h3>
-              <p>支持 JPG、PNG、WEBP · 建议图片小于 10MB</p>
+              <h3><span class="desktop-copy">拖入图片，或点击上传</span><span class="mobile-copy">轻触画面，选择照片</span></h3>
+              <p><span class="desktop-copy">支持 JPG、PNG、WEBP · 建议图片小于 10MB</span><span class="mobile-copy">也可以点击下方按钮打开摄像头</span></p>
               <button class="upload-button" id="uploadButton" type="button">选择图片 <span>↗</span></button>
             </div>
             <div class="preview-panel hidden" id="previewPanel">
@@ -78,7 +84,7 @@
               <div class="canvas-wrap"><video id="cameraVideo" autoplay muted playsinline></video><canvas id="cameraCanvas"></canvas><div class="camera-badge"><span class="tiny-dot"></span>LIVE</div></div>
             </div>
           </div>
-          <div class="tool-actions"><button class="secondary-button" id="cameraButton" type="button"><span>◉</span> 打开摄像头</button><button class="primary-button" id="analyzeButton" type="button" disabled><span class="button-label">开始识别</span><span class="button-arrow">→</span></button></div>
+          <div class="tool-actions"><button class="dock-upload-button" id="dockUploadButton" type="button" aria-label="上传照片"><span aria-hidden="true">▧</span><small>相册</small></button><button class="secondary-button" id="cameraButton" type="button"><span>◉</span> 打开摄像头</button><button class="primary-button" id="analyzeButton" type="button" disabled><span class="button-label">开始识别</span><span class="button-arrow">→</span></button></div>
           <div class="progress-wrap hidden" id="progressWrap"><div class="progress-track"><div class="progress-bar" id="progressBar"></div></div><span id="progressLabel">正在加载 AI 引擎…</span></div>
         </div>
 
@@ -87,7 +93,7 @@
             <div class="card-heading"><div><p class="eyebrow"><span class="eyebrow-line"></span>识别结果</p><h3 id="resultTitle">等待一张图片</h3></div><span class="result-count" id="resultCount">—</span></div>
             <div id="resultsList" class="results-list"><div class="empty-result"><span class="empty-orbit">+</span><p>上传图片后，AI 会在这里<br />告诉你看见了什么</p></div></div>
           </div>
-          <div class="tips-card"><p class="eyebrow"><span class="eyebrow-line"></span>识别小贴士</p><div id="tipsContent"><h3>让结果更准确</h3><p>使用光线充足、主体清晰的图片。识别手势时，请让手掌完整出现在画面中。</p><div class="tip-rule"></div><div class="tip-stat"><span class="tip-number">01</span><span>当前模式<br /><strong id="tipMode">物品识别</strong></span></div></div></div>
+          <div class="tips-card"><p class="eyebrow"><span class="eyebrow-line"></span>识别小贴士</p><div id="tipsContent"><h3 id="tipHeading">让结果更准确</h3><p id="tipDescription">使用光线充足、主体清晰的图片，尽量让目标完整出现在画面中。</p><div class="tip-rule"></div><div class="tip-stat"><span class="tip-number">01</span><span>当前模式<br /><strong id="tipMode">物品识别</strong></span></div></div></div>
         </div>
       </section>
 
