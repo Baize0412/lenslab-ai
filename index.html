@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f4f0e8" />
+    <meta name="description" content="LensLab：在浏览器中进行物品、手势和人脸表情识别。" />
+    <title>LensLab · AI 图像识别</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23161b19'/%3E%3Ccircle cx='16' cy='16' r='9' fill='%23d6f25b'/%3E%3C/svg%3E" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Noto+Serif+SC:wght@600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="fixes.css" />
+  </head>
+  <body>
+    <div class="grain" aria-hidden="true"></div>
+    <header class="site-header">
+      <a class="brand" href="./" aria-label="LensLab 首页">
+        <span class="brand-mark"><span></span><span></span><span></span></span>
+        <span>LENS<span class="brand-dot">·</span>LAB</span>
+      </a>
+      <div class="header-meta">
+        <span class="status-dot"></span>
+        <span>本地 AI 引擎</span>
+        <span class="header-separator"></span>
+        <span class="mono">v1.0 / 2026</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero section-shell">
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="eyebrow-line"></span>视觉实验室 · 即时识别</p>
+          <h1>让每一次<br /><em>看见</em>都有答案<span class="title-dot">。</span></h1>
+          <p class="hero-intro">用浏览器里的 AI，看懂你眼前的物体、手势与表情。上传一张图片，或打开摄像头开始探索。</p>
+          <div class="hero-pills" aria-label="功能概览">
+            <span>物品识别</span><span>手势识别</span><span>表情识别</span>
+          </div>
+        </div>
+        <div class="hero-aside">
+          <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
+          <div class="hero-orb"><span class="orb-eye"></span><span class="orb-ring"></span></div>
+          <p class="orb-caption">THINK<br />IN SIGHT</p>
+          <div class="hero-index"><span>01</span><span class="index-rule"></span><span>3 MODES</span></div>
+        </div>
+      </section>
+
+      <section class="workspace section-shell" id="recognizer">
+        <div class="section-heading">
+          <div><p class="eyebrow"><span class="eyebrow-line"></span>开始识别</p><h2>选择你的观察方式</h2></div>
+          <p class="heading-note">所有推理在你的设备上完成<br /><span>无需上传图片 · 保护隐私</span></p>
+        </div>
+
+        <div class="mode-tabs" role="tablist" aria-label="识别模式">
+          <button class="mode-tab active" role="tab" aria-selected="true" data-mode="objects"><span class="tab-number">01</span><span class="tab-icon">◈</span><span><strong>物品</strong><small>OBJECTS</small></span><span class="tab-arrow">↗</span></button>
+          <button class="mode-tab" role="tab" aria-selected="false" data-mode="gestures"><span class="tab-number">02</span><span class="tab-icon">✦</span><span><strong>手势</strong><small>GESTURES</small></span><span class="tab-arrow">↗</span></button>
+          <button class="mode-tab" role="tab" aria-selected="false" data-mode="emotions"><span class="tab-number">03</span><span class="tab-icon">◡</span><span><strong>表情</strong><small>EMOTIONS</small></span><span class="tab-arrow">↗</span></button>
+        </div>
+
+        <div class="tool-card">
+          <div class="tool-topline"><span class="mode-label">物品识别 / OBJECT DETECTION</span><span class="engine-status"><span class="tiny-dot"></span><span id="engineStatus">引擎待启动</span></span></div>
+          <div id="objectFilters" class="object-filters" aria-label="物品识别用途"><button data-filter="all" aria-pressed="true">日常物品</button><button data-filter="fruits" aria-pressed="false">水果识别</button><button data-filter="waste" aria-pressed="false">垃圾分类提示</button></div>
+          <div class="input-stage">
+            <div class="dropzone" id="dropzone">
+              <input id="fileInput" type="file" accept="image/*" hidden />
+              <div class="drop-icon"><span>↑</span></div>
+              <h3>拖入图片，或点击上传</h3>
+              <p>支持 JPG、PNG、WEBP · 建议图片小于 10MB</p>
+              <button class="upload-button" id="uploadButton" type="button">选择图片 <span>↗</span></button>
+            </div>
+            <div class="preview-panel hidden" id="previewPanel">
+              <div class="preview-toolbar"><span id="sourceLabel">已载入图片</span><button class="text-button" id="clearButton" type="button">清除 ×</button></div>
+              <div class="canvas-wrap"><img id="previewImage" alt="待识别图片" /><canvas id="overlayCanvas"></canvas><div class="scan-line"></div></div>
+            </div>
+            <div class="camera-panel hidden" id="cameraPanel">
+              <div class="preview-toolbar"><span>实时摄像头</span><button class="text-button" id="stopCameraButton" type="button">关闭 ×</button></div>
+              <div class="canvas-wrap"><video id="cameraVideo" autoplay muted playsinline></video><canvas id="cameraCanvas"></canvas><div class="camera-badge"><span class="tiny-dot"></span>LIVE</div></div>
+            </div>
+          </div>
+          <div class="tool-actions"><button class="secondary-button" id="cameraButton" type="button"><span>◉</span> 打开摄像头</button><button class="primary-button" id="analyzeButton" type="button" disabled><span class="button-label">开始识别</span><span class="button-arrow">→</span></button></div>
+          <div class="progress-wrap hidden" id="progressWrap"><div class="progress-track"><div class="progress-bar" id="progressBar"></div></div><span id="progressLabel">正在加载 AI 引擎…</span></div>
+        </div>
+
+        <div class="results-grid">
+          <div class="results-card">
+            <div class="card-heading"><div><p class="eyebrow"><span class="eyebrow-line"></span>识别结果</p><h3 id="resultTitle">等待一张图片</h3></div><span class="result-count" id="resultCount">—</span></div>
+            <div id="resultsList" class="results-list"><div class="empty-result"><span class="empty-orbit">+</span><p>上传图片后，AI 会在这里<br />告诉你看见了什么</p></div></div>
+          </div>
+          <div class="tips-card"><p class="eyebrow"><span class="eyebrow-line"></span>识别小贴士</p><div id="tipsContent"><h3>让结果更准确</h3><p>使用光线充足、主体清晰的图片。识别手势时，请让手掌完整出现在画面中。</p><div class="tip-rule"></div><div class="tip-stat"><span class="tip-number">01</span><span>当前模式<br /><strong id="tipMode">物品识别</strong></span></div></div></div>
+        </div>
+      </section>
+
+      <section class="how-section section-shell">
+        <div class="section-heading"><div><p class="eyebrow"><span class="eyebrow-line"></span>幕后工作</p><h2>简单三步，看见答案</h2></div><p class="heading-note">由开源模型驱动<br /><span>在你的浏览器里运行</span></p></div>
+        <div class="steps"><div class="step"><span class="step-num">01</span><div class="step-icon">▧</div><h3>选择输入</h3><p>上传图片，或打开设备摄像头。</p></div><div class="step-connector"></div><div class="step"><span class="step-num">02</span><div class="step-icon">✧</div><h3>AI 观察</h3><p>模型在本地分析画面中的细节。</p></div><div class="step-connector"></div><div class="step"><span class="step-num">03</span><div class="step-icon">◉</div><h3>得到答案</h3><p>查看类别、置信度和可视化标记。</p></div></div>
+      </section>
+
+      <section class="privacy-banner section-shell"><div class="privacy-icon">⌁</div><div><p class="eyebrow">PRIVATE BY DESIGN</p><h3>你的图片，始终留在你的设备上。</h3></div><span class="privacy-arrow">↗</span></section>
+    </main>
+
+    <footer class="site-footer section-shell"><div class="brand footer-brand"><span class="brand-mark"><span></span><span></span><span></span></span><span>LENS<span class="brand-dot">·</span>LAB</span></div><p>浏览器里的小型视觉实验室</p><p class="mono">MADE FOR CURIOUS EYES · 2026</p></footer>
+
+    <div class="toast" id="toast" role="status"></div>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
