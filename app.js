@@ -1,153 +1,90 @@
-const $ = s => document.querySelector(s);
-const els = {
-  tabs: [...document.querySelectorAll('.mode-tab')], modeLabel: $('.mode-label'), engineStatus: $('#engineStatus'), fileInput: $('#fileInput'), uploadButton: $('#uploadButton'), dockUploadButton: $('#dockUploadButton'), dropzone: $('#dropzone'), previewPanel: $('#previewPanel'), previewImage: $('#previewImage'), overlayCanvas: $('#overlayCanvas'), cameraPanel: $('#cameraPanel'), cameraVideo: $('#cameraVideo'), cameraCanvas: $('#cameraCanvas'), cameraButton: $('#cameraButton'), stopCameraButton: $('#stopCameraButton'), clearButton: $('#clearButton'), analyzeButton: $('#analyzeButton'), progressWrap: $('#progressWrap'), progressBar: $('#progressBar'), progressLabel: $('#progressLabel'), resultTitle: $('#resultTitle'), resultCount: $('#resultCount'), resultsList: $('#resultsList'), tipMode: $('#tipMode'), tipHeading: $('#tipHeading'), tipDescription: $('#tipDescription'), toast: $('#toast'), toolCard: $('.tool-card'), filters: $('#objectFilters')
+const $ = selector => document.querySelector(selector);
+const ui = {
+  cameraInput: $('#cameraInput'), albumInput: $('#albumInput'), cameraButton: $('#cameraButton'), albumButton: $('#albumButton'),
+  clearButton: $('#clearButton'), preview: $('#preview'), viewerEmpty: $('#viewerEmpty'), loading: $('#loading'), loadingText: $('#loadingText'),
+  result: $('#result'), confidence: $('#confidence'), resultIcon: $('#resultIcon'), resultCategory: $('#resultCategory'), resultItem: $('#resultItem'), resultAdvice: $('#resultAdvice')
 };
-const state = { mode: 'objects', filter: 'all', imageReady: false, stream: null, models: {}, pending: {}, runningModes: {}, detecting: false, session: 0, imageUrl: null, lastFrame: -1 };
-const modeInfo = { objects: ['物品识别 / OBJECT DETECTION', '物品识别'], gestures: ['手势识别 / GESTURE RECOGNITION', '手势识别'], emotions: ['表情识别 / FACIAL EXPRESSION', '表情识别'] };
-const gestureLabels = { Open_Palm: ['张开手掌 / 举手势', 'OPEN PALM'], Victory: ['比耶 / 胜利手势', 'VICTORY'], Thumb_Up: ['点赞', 'THUMBS UP'], Thumb_Down: ['拇指向下', 'THUMBS DOWN'], Pointing_Up: ['指向上方', 'POINTING UP'], ILoveYou: ['我爱你手势', 'I LOVE YOU'], Closed_Fist: ['握拳', 'CLOSED FIST'], None: ['检测到手 · 未匹配手势', 'UNMATCHED HAND'] };
-const objectNames = {person:'人',bicycle:'自行车',car:'汽车',motorcycle:'摩托车',airplane:'飞机',bus:'公交车',train:'火车',truck:'卡车',boat:'船','traffic light':'交通灯','fire hydrant':'消防栓','stop sign':'停车标志','parking meter':'停车计时器',bench:'长椅',bird:'鸟',cat:'猫',dog:'狗',horse:'马',sheep:'羊',cow:'牛',elephant:'大象',bear:'熊',zebra:'斑马',giraffe:'长颈鹿',backpack:'背包',umbrella:'雨伞',handbag:'手提包',tie:'领带',suitcase:'行李箱',frisbee:'飞盘',skis:'滑雪板',snowboard:'单板滑雪板','sports ball':'球',kite:'风筝','baseball bat':'棒球棒','baseball glove':'棒球手套',skateboard:'滑板',surfboard:'冲浪板','tennis racket':'网球拍',bottle:'瓶子','wine glass':'酒杯',cup:'杯子',fork:'叉子',knife:'刀',spoon:'勺子',bowl:'碗',banana:'香蕉',apple:'苹果',sandwich:'三明治',orange:'橙子',broccoli:'西兰花',carrot:'胡萝卜','hot dog':'热狗',pizza:'披萨',donut:'甜甜圈',cake:'蛋糕',chair:'椅子',couch:'沙发','potted plant':'盆栽',bed:'床','dining table':'餐桌',toilet:'马桶',tv:'电视',laptop:'笔记本电脑',mouse:'鼠标',remote:'遥控器',keyboard:'键盘','cell phone':'手机',microwave:'微波炉',oven:'烤箱',toaster:'烤面包机',sink:'水槽',refrigerator:'冰箱',book:'书',clock:'时钟',vase:'花瓶',scissors:'剪刀','teddy bear':'玩具熊','hair drier':'吹风机',toothbrush:'牙刷'};
-const fruits = new Set(['apple', 'banana', 'orange']);
-const food = new Set(['banana','apple','orange','broccoli','carrot','sandwich','hot dog','pizza','donut','cake']);
-function wasteHint(name) {
-  if (food.has(name)) return '厨余垃圾 · 去除包装后投放';
-  if (name === 'bottle') return '可回收物候选 · 普通饮料瓶请倒空；药品瓶、污染瓶另查当地规则';
-  if (name === 'book') return '可回收物候选 · 干净纸质书籍';
-  if (['laptop','cell phone','keyboard','mouse','tv','remote'].includes(name)) return '电子废弃物 · 交专门回收点，电池单独处理';
-  return '分类待确认 · 材质、污染情况与当地规则决定类别';
+const names = {apple:'苹果',banana:'香蕉',orange:'橙子',broccoli:'西兰花',carrot:'胡萝卜',sandwich:'三明治','hot dog':'热狗',pizza:'披萨',donut:'甜甜圈',cake:'蛋糕',bottle:'瓶子',book:'书本','cell phone':'手机',laptop:'笔记本电脑',keyboard:'键盘',mouse:'鼠标',remote:'遥控器',tv:'电视',clock:'时钟',vase:'花瓶',cup:'杯子','wine glass':'酒杯',bowl:'碗',fork:'叉子',knife:'刀',spoon:'勺子',toothbrush:'牙刷',scissors:'剪刀','hair drier':'吹风机',backpack:'背包',handbag:'手提包',umbrella:'雨伞',tie:'领带',suitcase:'行李箱',chair:'椅子',couch:'沙发','potted plant':'盆栽'};
+const food = new Set(['apple','banana','orange','broccoli','carrot']);
+const preparedFood = new Set(['sandwich','hot dog','pizza','donut','cake']);
+const electronics = new Set(['cell phone','laptop','keyboard','mouse','remote','tv','hair drier']);
+const potentialWaste = new Set([...food,...preparedFood,...electronics,'bottle','book','cup','wine glass','bowl','fork','knife','spoon','toothbrush','scissors','clock','vase','backpack','handbag','umbrella','tie','suitcase','chair','couch','potted plant']);
+const state = {model:null, modelPromise:null, imageUrl:null, requestId:0};
+
+function setResult(category, item, advice, icon, tone = 'neutral', score = null) {
+  ui.result.dataset.tone = tone;
+  ui.resultCategory.textContent = category;
+  ui.resultItem.textContent = item;
+  ui.resultAdvice.textContent = advice;
+  ui.resultIcon.textContent = icon;
+  ui.confidence.classList.toggle('hidden', score === null);
+  if (score !== null) ui.confidence.textContent = `识别可信度 ${Math.round(score * 100)}%`;
 }
-function toast(message) { els.toast.textContent = message; els.toast.classList.add('show'); clearTimeout(toast.timer); toast.timer = setTimeout(() => els.toast.classList.remove('show'), 4200); }
-function progress(value, label) { els.progressWrap.classList.remove('hidden'); els.progressBar.style.width = `${value}%`; els.progressLabel.textContent = label; }
-function engine(label, ready = false) { els.engineStatus.textContent = label; els.engineStatus.previousElementSibling.style.background = ready ? '#91c66d' : '#ff9276'; }
-function clearCanvas(canvas) { canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height); }
-function render(items, title, note = '') {
-  els.resultTitle.textContent = title; els.resultCount.textContent = String(items.length).padStart(2, '0'); els.resultsList.replaceChildren();
-  if (!items.length) { const empty = document.createElement('div'); empty.className = 'empty-result'; empty.textContent = '暂未发现清晰目标，请调整光线、距离或换一张图片。'; els.resultsList.append(empty); }
-  for (const item of items) {
-    const row = document.createElement('div'); row.className = 'result-row';
-    const name = document.createElement('div'); name.className = 'result-name'; name.textContent = item.name;
-    const sub = document.createElement('small'); sub.textContent = item.sub; name.append(sub);
-    const track = document.createElement('div'); track.className = 'confidence-track';
-    const fill = document.createElement('div'); fill.className = 'confidence-fill'; const score = Math.round(Math.max(0, Math.min(1, item.score)) * 100); fill.style.width = `${score}%`; track.append(fill);
-    const value = document.createElement('div'); value.className = 'confidence-value'; value.textContent = item.strength ? `强度 ${score}` : `${score}%`;
-    row.append(name, track, value); els.resultsList.append(row);
+function classify(label) {
+  if (food.has(label)) return ['厨余垃圾', '去除塑料袋、贴纸等包装后投放。', '◌', 'food'];
+  if (preparedFood.has(label)) return ['厨余垃圾', '食物部分属于厨余；包装请按材质另行分类。', '◌', 'food'];
+  if (label === 'book') return ['可回收物', '干净、干燥的纸质书本可回收。', '♻', 'recycle'];
+  if (electronics.has(label)) return ['电子废弃物', '交给电子产品回收点；电池请单独处理。', '▣', 'electronic'];
+  if (label === 'bottle') return ['先确认材质', '饮料瓶倒空后通常可回收；药品瓶或污染瓶需按当地规定。', '?', 'uncertain'];
+  if (['cup','wine glass','bowl','fork','knife','spoon'].includes(label)) return ['先确认材质', '同类物品可能由不同材质制成，请按材质和污染情况分类。', '?', 'uncertain'];
+  return ['需要人工判断', '仅凭照片无法确认材质和用途，请参考当地分类规则。', '?', 'uncertain'];
+}
+function reset() {
+  state.requestId += 1;
+  if (state.imageUrl) URL.revokeObjectURL(state.imageUrl);
+  state.imageUrl = null;
+  ui.preview.removeAttribute('src');
+  ui.preview.classList.add('hidden');
+  ui.viewerEmpty.classList.remove('hidden');
+  ui.clearButton.classList.add('hidden');
+  ui.loading.classList.add('hidden');
+  ui.cameraInput.value = '';
+  ui.albumInput.value = '';
+  setResult('等待照片', '拍照或选图后显示分类建议', '建议只拍一个物品，保持光线充足。', '⌕');
+}
+async function loadModel() {
+  if (state.model) return state.model;
+  if (!state.modelPromise) {
+    if (typeof cocoSsd === 'undefined') throw new Error('识别库未加载');
+    state.modelPromise = cocoSsd.load({base:'mobilenet_v2'}).then(model => state.model = model).catch(error => {state.modelPromise = null; throw error;});
   }
-  if (note) { const p = document.createElement('p'); p.className = 'recognition-note'; p.textContent = note; els.resultsList.append(p); }
+  return state.modelPromise;
 }
-function emptyResults() { els.resultTitle.textContent = '等待图片或摄像头'; els.resultCount.textContent = '—'; els.resultsList.innerHTML = '<div class="empty-result"><span class="empty-orbit">+</span><p>上传图片或打开摄像头，<br>查看 AI 识别结果</p></div>'; }
-function updateTip() {
-  const content = state.mode === 'gestures'
-    ? ['让手掌完整入镜', '保持手部清晰，手指不要被遮挡。比耶时让两根手指分开。']
-    : state.mode === 'emotions'
-      ? ['正面看向镜头', '让脸部处于均匀光线下，避免口罩和大面积遮挡。']
-      : state.filter === 'fruits'
-        ? ['拍清水果轮廓', '当前支持苹果、香蕉和橙子，单个水果更容易识别。']
-        : state.filter === 'waste'
-          ? ['分类还要看材质', '识别物品后会给出投放提示，请结合污染情况与当地规则确认。']
-          : ['让结果更准确', '使用光线充足、主体清晰的图片，尽量让目标完整出现在画面中。'];
-  els.tipHeading.textContent = content[0]; els.tipDescription.textContent = content[1];
-}
-function stopCamera() {
-  state.session++; state.stream?.getTracks().forEach(track => track.stop()); state.stream = null; els.cameraVideo.srcObject = null;
-  document.body.classList.remove('camera-active');
-  els.cameraPanel.classList.add('hidden'); els.dropzone.classList.remove('hidden'); els.cameraButton.classList.remove('hidden'); els.analyzeButton.classList.remove('hidden'); els.analyzeButton.disabled = true; els.progressWrap.classList.add('hidden'); engine('引擎待启动');
-}
-function resetInput() {
-  stopCamera(); state.imageReady = false; document.body.classList.remove('has-image'); if (state.imageUrl) URL.revokeObjectURL(state.imageUrl); state.imageUrl = null; els.fileInput.value = ''; els.previewPanel.classList.add('hidden'); clearCanvas(els.overlayCanvas); emptyResults();
-}
-function setMode(mode) {
-  if (state.detecting) return; resetInput(); state.mode = mode; const info = modeInfo[mode]; els.modeLabel.textContent = info[0]; els.tipMode.textContent = info[1]; els.filters.classList.toggle('hidden', mode !== 'objects'); updateTip();
-  els.tabs.forEach(tab => { const active = tab.dataset.mode === mode; tab.classList.toggle('active', active); tab.setAttribute('aria-selected', active); });
-}
-function selectImage(file) {
-  if (state.detecting) return;
-  if (!file?.type.startsWith('image/')) return toast('请选择 JPG、PNG 或 WEBP 图片');
-  if (file.size > 10 * 1024 * 1024) return toast('图片大小请控制在 10MB 以内');
-  resetInput(); state.imageUrl = URL.createObjectURL(file);
-  els.previewImage.onload = () => { els.dropzone.classList.add('hidden'); els.previewPanel.classList.remove('hidden'); state.imageReady = true; document.body.classList.add('has-image'); els.analyzeButton.disabled = false; engine('图片已载入'); };
-  els.previewImage.onerror = () => { resetInput(); toast('无法读取这张图片，请换成 JPG 或 PNG'); }; els.previewImage.src = state.imageUrl;
-}
-function fitCanvas(canvas, source) {
-  const rect = source.getBoundingClientRect(), scale = devicePixelRatio || 1; canvas.width = Math.max(1, Math.round(rect.width * scale)); canvas.height = Math.max(1, Math.round(rect.height * scale)); canvas.style.width = `${rect.width}px`; canvas.style.height = `${rect.height}px`;
-}
-function drawBoxes(canvas, source, predictions) {
-  fitCanvas(canvas, source); const ctx = canvas.getContext('2d'), sx = canvas.width / (source.naturalWidth || source.videoWidth), sy = canvas.height / (source.naturalHeight || source.videoHeight);
-  ctx.lineWidth = Math.max(2, canvas.width / 360); ctx.font = `600 ${Math.max(12, canvas.width / 45)}px sans-serif`;
-  for (const p of predictions) { const [x,y,w,h] = p.bbox, text = `${objectNames[p.class] || p.class} ${Math.round(p.score*100)}%`; ctx.strokeStyle = '#d6f25b'; ctx.strokeRect(x*sx,y*sy,w*sx,h*sy); ctx.fillStyle = '#d6f25b'; ctx.fillRect(x*sx,Math.max(0,y*sy-25),ctx.measureText(text).width+14,25); ctx.fillStyle='#161b19'; ctx.fillText(text,x*sx+7,Math.max(18,y*sy-7)); }
-}
-function drawLandmarks(canvas, source, groups) {
-  fitCanvas(canvas, source); const ctx = canvas.getContext('2d'); ctx.fillStyle = '#d6f25b';
-  for (const points of groups) for (const p of points) { ctx.beginPath(); ctx.arc(p.x*canvas.width,p.y*canvas.height,Math.max(1.5,canvas.width/280),0,Math.PI*2); ctx.fill(); }
-}
-async function cached(key, create) {
-  if (state.models[key]) return state.models[key];
-  if (!state.pending[key]) state.pending[key] = create().then(model => state.models[key] = model).finally(() => delete state.pending[key]);
-  return state.pending[key];
-}
-async function loadVision() {
-  return cached('vision', async () => { progress(25,'正在加载视觉引擎…'); const vision = await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21/+esm'); state.models.fileset = await vision.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21/wasm'); return vision; });
-}
-async function loadModel(mode) {
-  if (mode === 'objects') return cached('objects', async () => { progress(25,'正在加载物品识别模型…'); return cocoSsd.load({base:'mobilenet_v2'}); });
-  const vision = await loadVision(), key = mode === 'gestures' ? 'gesture' : 'face';
-  return cached(key, async () => {
-    progress(60,'正在加载识别模型…'); const Task = key === 'gesture' ? vision.GestureRecognizer : vision.FaceLandmarker;
-    const options = { baseOptions: { modelAssetPath: key === 'gesture' ? 'https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task' : 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task', delegate:'GPU' }, runningMode:'IMAGE', ...(key === 'gesture' ? {numHands:2} : {numFaces:3,outputFaceBlendshapes:true}) };
-    let model; try { model = await Task.createFromOptions(state.models.fileset, options); } catch { options.baseOptions.delegate='CPU'; model = await Task.createFromOptions(state.models.fileset, options); }
-    state.runningModes[key] = 'IMAGE'; return model;
-  });
-}
-function expression(categories) {
-  const get = name => categories.find(c => c.categoryName === name)?.score || 0;
-  const candidates = [{name:'微笑',sub:'SMILE',score:(get('mouthSmileLeft')+get('mouthSmileRight'))/2},{name:'张嘴 / 惊讶样表情',sub:'OPEN MOUTH',score:get('jawOpen')},{name:'皱眉',sub:'FROWN',score:(get('browDownLeft')+get('browDownRight'))/2}];
-  candidates.sort((a,b)=>b.score-a.score); return candidates[0].score > .35 ? candidates[0] : {name:'自然 / 平静样表情',sub:'NEUTRAL',score:1-candidates[0].score};
-}
-async function infer(source, canvas, mode, video, session) {
-  const model = await loadModel(mode); if (session !== state.session) return; progress(85,'AI 正在观察…');
-  if (mode === 'objects') {
-    let predictions = await model.detect(source,20,.35); if (session !== state.session) return;
-    if (state.filter === 'fruits') predictions = predictions.filter(p => fruits.has(p.class)); drawBoxes(canvas,source,predictions);
-    render(predictions.map(p => ({name:objectNames[p.class]||p.class,sub:state.filter==='waste'?wasteHint(p.class):p.class.toUpperCase(),score:p.score})), predictions.length ? `发现 ${predictions.length} 个${state.filter==='fruits'?'水果':'目标'}` : '等待清晰目标', state.filter==='waste'?'分类由识别物品推导，仅供常见物品参考；材质、污染情况与当地规定需人工确认。':state.filter==='fruits'?'当前预训练模型支持苹果、香蕉、橙子。':'物品模型支持 80 类日常目标。');
-  } else {
-    const key = mode==='gestures'?'gesture':'face', runningMode = video?'VIDEO':'IMAGE';
-    if (state.runningModes[key] !== runningMode) { await model.setOptions({runningMode}); state.runningModes[key]=runningMode; } if (session !== state.session) return;
-    const result = mode==='gestures' ? (video?model.recognizeForVideo(source,performance.now()):model.recognize(source)) : (video?model.detectForVideo(source,performance.now()):model.detect(source));
-    if (mode==='gestures') {
-      const items=(result.gestures||[]).map((g,i)=>{const top=g[0],labels=gestureLabels[top?.categoryName]||gestureLabels.None;return {name:labels[0],sub:`手 ${i+1} · ${labels[1]}`,score:top?.score||0};});
-      render(items,items.length?'识别到手势':'等待手势','举手势以张开手掌识别；不判断手臂是否举过头顶。'); drawLandmarks(canvas,source,result.landmarks||[]);
-    } else {
-      const items=(result.faceBlendshapes||[]).map((face,i)=>{const e=expression(face.categories);return {...e,sub:`人脸 ${i+1} · ${e.sub}`,strength:true};});
-      render(items,items.length?'面部表情特征':'等待人脸','显示面部动作特征与相对强度，不代表真实情绪或心理状态。'); drawLandmarks(canvas,source,result.faceLandmarks||[]);
-    }
-  }
-  engine('引擎已就绪',true); els.progressWrap.classList.add('hidden');
-}
-function busy(value) { state.detecting=value; els.tabs.forEach(t=>t.disabled=value); els.cameraButton.disabled=value; els.clearButton.disabled=value; els.analyzeButton.disabled=value || !state.imageReady; }
-async function analyzeImage() {
-  if (!state.imageReady || state.detecting) return; busy(true); els.toolCard.classList.add('analyzing'); const session=state.session;
-  try { await infer(els.previewImage,els.overlayCanvas,state.mode,false,session); if (matchMedia('(max-width: 760px)').matches) $('.results-card').scrollIntoView({behavior:'smooth',block:'start'}); } catch(error) { console.error(error); toast('识别失败，请刷新后重试'); engine('需要重试'); }
-  finally { busy(false); els.toolCard.classList.remove('analyzing'); els.progressWrap.classList.add('hidden'); }
-}
-async function startCamera() {
-  if (state.detecting || state.stream) return; resetInput(); const session=state.session; els.cameraButton.disabled=true;
+async function analyze(file) {
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {setResult('无法读取图片','请选择 JPG、PNG 或 WEBP 图片。','换一张照片后重试。','!','uncertain');return;}
+  if (file.size > 15 * 1024 * 1024) {setResult('图片过大','请选择小于 15MB 的图片。','换一张照片后重试。','!','uncertain');return;}
+  const requestId = ++state.requestId;
+  if (state.imageUrl) URL.revokeObjectURL(state.imageUrl);
+  state.imageUrl = URL.createObjectURL(file);
+  ui.preview.src = state.imageUrl;
+  ui.preview.classList.remove('hidden');
+  ui.viewerEmpty.classList.add('hidden');
+  ui.clearButton.classList.remove('hidden');
+  ui.loading.classList.remove('hidden');
+  ui.loadingText.textContent = '正在加载识别模型…';
+  setResult('正在识别', '请稍候', '图片只在当前设备上处理。', '◌');
   try {
-    if (!navigator.mediaDevices?.getUserMedia) throw new Error('Camera requires HTTPS');
-    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:960},height:{ideal:720}},audio:false});
-    if (session!==state.session) {stream.getTracks().forEach(t=>t.stop());return;}
-    state.stream=stream; document.body.classList.add('camera-active'); els.cameraVideo.srcObject=stream; els.dropzone.classList.add('hidden'); els.cameraPanel.classList.remove('hidden'); els.cameraButton.classList.add('hidden'); els.analyzeButton.classList.add('hidden'); await els.cameraVideo.play(); state.lastFrame=-1;
-    await loadModel(state.mode); if (session!==state.session) return; cameraLoop(session);
-  } catch(error) { console.error(error); stopCamera(); toast('无法启动摄像头或模型，请检查权限后重试'); } finally {els.cameraButton.disabled=false;}
+    await ui.preview.decode();
+    if (requestId !== state.requestId) return;
+    const model = await loadModel();
+    if (requestId !== state.requestId) return;
+    ui.loadingText.textContent = '正在分析照片…';
+    const predictions = await model.detect(ui.preview, 20, .3);
+    if (requestId !== state.requestId) return;
+    const candidate = predictions.filter(item => potentialWaste.has(item.class)).sort((a,b) => b.score - a.score)[0];
+    if (!candidate) {setResult('暂时无法判断','没有识别到可分类的常见物品。','请靠近物品、保持光线充足，重新拍一张。','?','uncertain');return;}
+    const [category,advice,icon,tone] = classify(candidate.class);
+    setResult(category,`${names[candidate.class] || candidate.class} · 分类建议`,advice,icon,tone,candidate.score);
+  } catch (error) {
+    console.error(error);
+    if (requestId === state.requestId) setResult('识别失败','模型暂时无法加载。','请检查网络连接，然后重新选择照片。','!','uncertain');
+  } finally {
+    if (requestId === state.requestId) ui.loading.classList.add('hidden');
+  }
 }
-async function cameraLoop(session) {
-  if (!state.stream || session!==state.session) return;
-  try { if (els.cameraVideo.readyState>=2 && els.cameraVideo.currentTime!==state.lastFrame) { state.lastFrame=els.cameraVideo.currentTime; await infer(els.cameraVideo,els.cameraCanvas,state.mode,true,session); } }
-  catch(error) { if(session===state.session){console.error(error);stopCamera();toast('实时识别失败，请重新打开摄像头');} return; }
-  if(session===state.session) setTimeout(()=>cameraLoop(session),state.mode==='objects'?300:100);
-}
-els.tabs.forEach(tab=>tab.addEventListener('click',()=>setMode(tab.dataset.mode)));
-els.filters.querySelectorAll('button').forEach(button=>button.addEventListener('click',()=>{state.filter=button.dataset.filter;els.filters.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));clearCanvas(els.overlayCanvas);emptyResults();updateTip();}));
-els.uploadButton.addEventListener('click',()=>els.fileInput.click()); els.dockUploadButton.addEventListener('click',()=>els.fileInput.click()); els.dropzone.addEventListener('click',e=>{if(!e.target.closest('button'))els.fileInput.click();});
-els.fileInput.addEventListener('change',e=>selectImage(e.target.files[0]));
-['dragenter','dragover'].forEach(type=>els.dropzone.addEventListener(type,e=>{e.preventDefault();els.dropzone.style.background='#f0f6d4';}));
-['dragleave','drop'].forEach(type=>els.dropzone.addEventListener(type,e=>{e.preventDefault();els.dropzone.style.background='';}));
-els.dropzone.addEventListener('drop',e=>selectImage(e.dataTransfer.files[0])); els.clearButton.addEventListener('click',resetInput); els.analyzeButton.addEventListener('click',analyzeImage); els.cameraButton.addEventListener('click',startCamera); els.stopCameraButton.addEventListener('click',stopCamera); window.addEventListener('pagehide',stopCamera);
-engine('引擎待启动');
+ui.cameraButton.addEventListener('click', () => ui.cameraInput.click());
+ui.albumButton.addEventListener('click', () => ui.albumInput.click());
+ui.cameraInput.addEventListener('change', event => { const file = event.target.files[0]; event.target.value = ''; analyze(file); });
+ui.albumInput.addEventListener('change', event => { const file = event.target.files[0]; event.target.value = ''; analyze(file); });
+ui.clearButton.addEventListener('click', reset);
