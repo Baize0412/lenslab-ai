@@ -17,12 +17,14 @@
       <span class="local-badge"><i></i>本地识别</span>
     </header>
     <section class="viewer" aria-label="待识别照片">
-      <div class="viewer-empty" id="viewerEmpty">
+      <button class="viewer-empty" id="viewerEmpty" type="button" aria-label="打开前置摄像头实时识别">
         <div class="scan-art" aria-hidden="true"><span class="scan-corner tl"></span><span class="scan-corner tr"></span><span class="scan-corner bl"></span><span class="scan-corner br"></span><span class="scan-object">♻</span></div>
-        <p class="empty-title">对准物品，拍张照片</p>
-        <p class="empty-sub">也可以从相册选择一张清晰的图片</p>
-      </div>
+        <span class="empty-title">轻触画面，实时识别</span>
+        <span class="empty-sub">打开前置摄像头，也可拍照或相册选图</span>
+      </button>
       <img id="preview" class="preview hidden" alt="待分类物品照片" />
+      <video id="cameraVideo" class="camera-video hidden" autoplay muted playsinline aria-label="前置摄像头实时画面"></video>
+      <span id="liveBadge" class="live-badge hidden">● 实时识别</span>
       <div id="loading" class="loading hidden" role="status"><span class="spinner"></span><span id="loadingText">正在识别…</span></div>
       <button id="clearButton" class="clear-button hidden" type="button" aria-label="移除照片">重拍 ×</button>
     </section>
