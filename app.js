@@ -8,26 +8,31 @@ const names = {apple:'苹果',banana:'香蕉',orange:'橙子',broccoli:'西兰�
 const food = new Set(['apple','banana','orange','broccoli','carrot']);
 const preparedFood = new Set(['sandwich','hot dog','pizza','donut','cake']);
 const electronics = new Set(['cell phone','laptop','keyboard','mouse','remote','tv','hair drier']);
+const recyclable = new Set(['book','bottle','fork','knife','spoon','scissors','backpack','handbag','tie','suitcase']);
 const potentialWaste = new Set([...food,...preparedFood,...electronics,'bottle','book','cup','wine glass','bowl','fork','knife','spoon','toothbrush','scissors','clock','vase','backpack','handbag','umbrella','tie','suitcase','chair','couch','potted plant']);
 const state = {model:null, modelPromise:null, imageUrl:null, requestId:0, stream:null, cameraStarting:false, timer:null, inference:Promise.resolve()};
 
-function setResult(category, item, advice, icon, tone = 'neutral', score = null) {
+function setResult(category, item, advice, icon, tone = 'neutral', score = null, estimated = false) {
   ui.result.dataset.tone = tone;
   ui.resultCategory.textContent = category;
   ui.resultItem.textContent = item;
   ui.resultAdvice.textContent = advice;
   ui.resultIcon.textContent = icon;
-  ui.confidence.classList.toggle('hidden', score === null);
-  if (score !== null) ui.confidence.textContent = `识别可信度 ${Math.round(score * 100)}%`;
+  ui.confidence.classList.toggle('hidden', score === null && !estimated);
+  ui.confidence.textContent = estimated || (score !== null && score < .55) ? '初步建议' : '分类建议';
 }
 function classify(label) {
-  if (food.has(label)) return ['厨余垃圾', '去除塑料袋、贴纸等包装后投放。', '◌', 'food'];
-  if (preparedFood.has(label)) return ['厨余垃圾', '食物部分属于厨余；包装请按材质另行分类。', '◌', 'food'];
-  if (label === 'book') return ['可回收物', '干净、干燥的纸质书本可回收。', '♻', 'recycle'];
-  if (electronics.has(label)) return ['电子废弃物', '交给电子产品回收点；电池请单独处理。', '▣', 'electronic'];
-  if (label === 'bottle') return ['先确认材质', '饮料瓶倒空后通常可回收；药品瓶或污染瓶需按当地规定。', '?', 'uncertain'];
-  if (['cup','wine glass','bowl','fork','knife','spoon'].includes(label)) return ['先确认材质', '同类物品可能由不同材质制成，请按材质和污染情况分类。', '?', 'uncertain'];
-  return ['需要人工判断', '仅凭照片无法确认材质和用途，请参考当地分类规则。', '?', 'uncertain'];
+  if (food.has(label) || preparedFood.has(label)) return ['不可回收垃圾', '食物部分投厨余垃圾桶；包装请另行分类。', '◌', 'food'];
+  if (electronics.has(label)) return ['可回收垃圾', '送电子产品专门回收点，电池请单独处理。', '♻', 'recycle'];
+  if (label === 'book') return ['可回收垃圾', '保持纸张干净、干燥，投入可回收物桶。', '♻', 'recycle'];
+  if (label === 'bottle') return ['可回收垃圾', '普通饮料瓶倒空后回收；药品瓶请单独处理。', '♻', 'recycle', true];
+  if (recyclable.has(label)) return ['可回收垃圾', '金属或干净织物可回收；塑料餐具投其他垃圾。', '♻', 'recycle', true];
+  if (label === 'wine glass') return ['可回收垃圾', '玻璃杯可回收；破损时包好，避免划伤。', '♻', 'recycle', true];
+  if (label === 'potted plant') return ['不可回收垃圾', '植物部分按当地厨余规则投放，花盆另行分类。', '◌', 'food', true];
+  if (['chair','couch'].includes(label)) return ['其他垃圾', '大件物品请预约回收或送到指定收集点。', '▤', 'other'];
+  if (label === 'clock') return ['其他垃圾', '取出电池单独投放，钟表可交专门回收点。', '▤', 'other', true];
+  if (['cup','bowl','vase'].includes(label)) return ['其他垃圾', '陶瓷类投其他垃圾；玻璃、金属材质可回收。', '▤', 'other', true];
+  return ['其他垃圾', '普通杂物投其他垃圾；电池、药品请单独处理。', '▤', 'other', true];
 }
 function reset() {
   state.requestId += 1;
@@ -43,7 +48,7 @@ function reset() {
   ui.loading.classList.add('hidden');
   ui.cameraInput.value = '';
   ui.albumInput.value = '';
-  setResult('等待照片', '拍照或选图后显示分类建议', '建议只拍一个物品，保持光线充足。', '⌕');
+  setResult('等待识别', '可回收 / 不可回收 / 其他垃圾', '轻触画面实时识别，或拍照、相册选图。', '⌕');
 }
 function stopCamera() {
   clearTimeout(state.timer);
@@ -58,18 +63,19 @@ function stopCamera() {
   ui.liveBadge.classList.add('hidden');
 }
 function detect(model, source, requestId) {
-  const task = state.inference.then(() => requestId === state.requestId ? model.detect(source, 20, .3) : []);
+  const task = state.inference.then(() => requestId === state.requestId ? model.detect(source, 20, .2) : []);
   state.inference = task.catch(() => {});
   return task;
 }
 function showPredictions(predictions, live = false) {
   const candidate = predictions.filter(item => potentialWaste.has(item.class)).sort((a,b) => b.score - a.score)[0];
   if (!candidate) {
-    setResult('暂时无法判断', '没有识别到可分类的常见物品。', live ? '把一个物品放在镜头前，保持光线充足。' : '请靠近物品、保持光线充足，重新拍一张。', '?', 'uncertain');
+    setResult('其他垃圾', '暂按其他垃圾考虑', '电池、药品请单独处理；拍清楚后可获得更准建议。', '▤', 'other', null, true);
     return;
   }
-  const [category,advice,icon,tone] = classify(candidate.class);
-  setResult(category, `${names[candidate.class] || candidate.class} · 分类建议`, advice, icon, tone, candidate.score);
+  const [category,advice,icon,tone,estimated = false] = classify(candidate.class);
+  const tentative = estimated || candidate.score < .55;
+  setResult(category, `${tentative ? '可能是' : '识别到'}${names[candidate.class] || candidate.class}`, advice, icon, tone, candidate.score, estimated);
 }
 async function startCamera() {
   if (state.cameraStarting || state.stream) return;
